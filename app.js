@@ -6,6 +6,7 @@ function isNotNull(o) {
     return !!o;
 }
 
+var timeSpanFormat = 1;
 
 var rs = {
     taskDao:null,
@@ -47,8 +48,7 @@ var rs = {
 
 }
 
-
-function formatTimeSpan(ms) {
+function formatTimeSpan1(ms) {
     if (!ms) {
         return 'Nothing';
     }
@@ -66,9 +66,51 @@ function formatTimeSpan(ms) {
     return timeString;
 }
 
+function formatTimeSpan2(ms) {
+    if (!ms) {
+        return 'Nothing';
+    }
+    var seconds = Math.floor(ms / 1000);
+    var secondsPart = Math.floor(seconds % 60);
+    var minutesPart = Math.floor(seconds / 60 % 60);
+    var hoursPart = Math.floor(seconds / 60 / 60);
+	var timeString;
+
+	if (secondsPart > 0) {
+		timeString = (secondsPart >= 10)?secondsPart:'0'+secondsPart;
+	} else {
+		timeString = '00';
+	}
+
+    if (minutesPart > 0) {
+        timeString = ((minutesPart >= 10)?minutesPart:'0' + minutesPart) + ':' + timeString;
+    } else {
+		timeString = '00:' + timeString;
+	}
+
+    if (hoursPart > 0) {
+        timeString = ((hoursPart >= 10)?hoursPart:'0' + hoursPart) + ':' + timeString;
+    } else {
+		timeString = '00:' + timeString;
+	}
+
+    return timeString;
+}
+
+function formatTimeSpan(ms) {
+	if (timeSpanFormat == 1) {
+		return formatTimeSpan1(ms);
+	} else {
+		return formatTimeSpan2(ms);
+	}
+}
 
 function isTracking(task) {
     return !!(task.timeTracking && task.timeTracking.startTime);
+}
+
+function isCompleted(task) {
+    return !!(task.completed);
 }
 
 function startTracking(task) {
@@ -125,7 +167,7 @@ function TaskController($scope) {
     });
 
     rs.loadAll().then(function(tasks) {
-      log("Load All",tasks);
+      log("Load All", tasks);
         $scope.tasks = tasks;
     });
 
@@ -143,6 +185,12 @@ function TaskController($scope) {
         }
         refresh();
     });
+	
+	$scope.onChangeTimeSpanFormat = function () {
+		timeSpanFormat++;
+		timeSpanFormat %= 2;
+	};
+
 
     $scope.noTaskTitleWarning = false;
     $scope.addTask = function () {
@@ -181,8 +229,18 @@ function TaskController($scope) {
     };
 
     $scope.isTracking = isTracking;
-
-    $scope.trackButtonLabel = function (task) {
+	
+	$scope.isCompleted = isCompleted;
+	
+	$scope.stateClass = function (task) {
+        return (isTracking(task))?('warning'):(isCompleted(task)?'success':'');
+    };
+	
+	$scope.iconClass = function (task) {
+        return (isTracking(task))?('time'):(isCompleted(task)?'ok-circle':'record');
+    };
+    
+	$scope.trackButtonLabel = function (task) {
         return isTracking(task) ? 'Tracking...' : 'Track'
     };
 
@@ -231,11 +289,11 @@ function TaskController($scope) {
         if (task.completed && isTracking(task)) {
             finishTracking(task);
         }
+		
         rs.taskDao.markCompleted(task.id, task.completed);
     };
 
     setInterval(function () {
         refresh();
     }, 1000);
-
 }

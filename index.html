@@ -1,116 +1,151 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en" ng-app>
-<head>
+  <head>
     <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Unhosted Time Tracker</title>
-    <link rel="stylesheet" href="libs/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div class="page">
-    <div id="remotestorage-connect"></div>
 
-    <h1>Unhosted Time Tracker</h1>
+    <!-- Bootstrap -->
+    <link href="libs/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" href="style.css">
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+	<div class="container">
+		<div class="row" ng-controller="TaskController">
+			<div class="col-md-8 col-md-offset-2">
+				<h1>Unhosted Time Tracker</h1>
 
-    <div ng-controller="TaskController">
+				<form role="form" class="form-inline" ng-submit="addTask()">
+				  <div class="form-group">
+					<input id="addTaskText" type="text" ng-model="taskText" autofocus="true" placeholder="Add new task title here ..." class="form-control">
+					<input class="btn btn-primary" type="submit" value="Add Task">
+				  </div>
+				</form>
 
-        <form class="form-inline" ng-submit="addTask()">
-            <input id="addTaskText" type="text" ng-model="taskText" size="40" autofocus="true"
-                   placeholder="Add new task title here ...">
-            <input class="btn btn-primary" type="submit" value="Add Task">
-        </form>
+				<div ng-switch on="tasks.length">
+					<div id="alerts">
+						<div class="alert alert-info" id="noTaskTitleWarning" style="display: none;" ng-show="noTaskTitleWarning">
+							Sorry, but You can't add a Task without a title!
+						</div>
 
-        <div ng-switch on="tasks.length">
+						<div ng-switch-when="0" class="alert alert-info" style="display: none;" ng-show="tasks.length==0">
+							You have no tasks yet. Please add some tasks<span ng-show="!isConnected"> or connect
+							to your remote storage account by using the funny button in the right top corner</span>!
+						</div>
+					</div>
+					
+					<div ng-switch-default style="display: none;" ng-show="tasks.length>0">
+						<table class="table table-bordered table-hover tasks">
+							<thead>
+								<th class="col-md-1">Done?</th>
+								<th class="col-md-4">Task Title</th>
+								<th class="col-md-2">
+									Tracked Time 
+									<span class="glyphicon glyphicon-cog" aria-hidden="true" ng-click="onChangeTimeSpanFormat()"></span>
+								</th>
+								<th class="col-md-2"></th>
+							</thead>
+							<tbody>
+								<tr ng-repeat="task in tasks" class="{{stateClass(task)}}">
+									<td style="text-align: center">
+										<label>
+											<span class="glyphicon glyphicon-{{iconClass(task)}}" aria-hidden="true"></span>
 
-            <div class="alert alert-info" id="noTaskTitleWarning" style="display: none;" ng-show="noTaskTitleWarning">
-                Sorry, but You can't add a Task without a title!
-            </div>
+											<input type="checkbox" ng-model="task.completed" ng-click="onToggledCompleted(task)" style="display:none">
+										</label>
+									</td>
+									
+									<td>
+										<span class="taskTitle">{{task.title}}</span>
+									</td>
+									
+									<td style="text-align: center">
+										<span class="spentTimeLabel">{{spentTimeLabel(task)}}</span>
+									</td>
+									
+									<td>
+										<div class="btn-group">
+											<button class="btn btn-default" ng-class="{active:isTracking(task),'btn-warning':isTracking(task)}"
+													ng-click="onTrackButton(task)">{{trackButtonLabel(task)}}
+											</button>
+											
+											<button class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+												<span class="caret"></span>
+											</button>
+											
+											<ul class="dropdown-menu">
+												<li>
+													<a  href="#" ng-click="showAddTimeDialog(task);">
+														Add time manually
+													</a>
+												</li>
+												
+												<li>
+													<a  href="#" ng-click="removeTask(task);">
+														Remove Task
+													</a>
+												</li>
+											</ul>
+										</div>
+									</td>
+								</tr>
+							</tbody>
+						</table>
 
-            <div ng-switch-when="0" class="alert alert-info" style="display: none;" ng-show="tasks.length==0">
-                You have no tasks yet. Please add some tasks<span ng-show="!isConnected"> or connect
-                to your remote storage account by using the funny button in the right top corner</span>!
-            </div>
+						<span>
+							{{remaining()}} of {{tasks.length}} remaining
+						</span>
+						
+						<button class="btn btn-xs btn-default" ng-click="removeFinishedTasks()">
+							Remove Done Tasks
+						</button>
+					</div>
+				</div>
 
-            <div ng-switch-default style="display: none;" ng-show="tasks.length>0">
+				<div id="addTimeDialog" class="modal fade">
+					<div class="modal-dialog">
+						<div class="modal-content">
+						<div class="modal-header">
+							<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+							<h3>Add Time to Task "{{currentTask.title}}"</h3>
+						</div>
 
-                <table class="table table-bordered tasks">
-                    <thead>
-                    <th>Done?</th>
-                    <th>Task Title</th>
-                    <th>Tracked Time</th>
-                    <th></th>
-                    </thead>
-                    <tbody>
-                    <tr ng-repeat="task in tasks" class="completed-{{task.completed}} tracking-{{isTracking(task)}}">
-                        <td>
-                            <input type="checkbox" ng-model="task.completed" ng-click="onToggledCompleted(task)">
-                        </td>
-                        <td>
-                            <span class="taskTitle">{{task.title}}</span>
-                        </td>
-                        <td>
-                            <span class="spentTimeLabel">{{spentTimeLabel(task)}}</span>
+						<form class="addTimeForm" ng-submit="addTime()">
+						<div class="modal-body">
+							<p>
+								Add <input id="addedHours" type="number" maxlength="2" min="-99" max="99" ng-model="addedHours" size="3"> hours and
+								<input id="addedMinutes" type="number" maxlength="2" min="-99" max="99" ng-model="addedMinutes" size="3"> minutes.
+							</p>
+						</div>
+						<div class="modal-footer">
+							<a href="#" class="btn" data-dismiss="modal">Cancel</a>
+							<input class="btn btn-primary" type="submit" value="Add Time">
+						</div>
+						</form>
+					</div>
+				</div>
+			</div>
+		​</div>
+	</div>
 
-                        </td>
-                        <td>
+	<div id="remotestorage-connect"></div>
 
-                            <div class="btn-group">
-                                <button class="btn" ng-class="{active:isTracking(task),'btn-warning':isTracking(task)}"
-                                        ng-click="onTrackButton(task)">{{trackButtonLabel(task)}}
-                                </button>
-                                <button class="btn dropdown-toggle" data-toggle="dropdown">
-                                    <span class="caret"></span>
-                                </button>
-                                <ul class="dropdown-menu">
-                                    <li><a  href="#" ng-click="showAddTimeDialog(task);">Add time
-                                        manually</a></li>
-                                    <li><a  href="#" ng-click="removeTask(task);">Remove Task</a></li>
-                                </ul>
-                            </div>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
-
-                <span>{{remaining()}} of {{tasks.length}} remaining</span>
-                <button class="btn btn-mini" ng-click="removeFinishedTasks()">Remove Done Tasks</button>
-
-
-            </div>
-        </div>
-
-
-        <div id="addTimeDialog" class="modal hide fade">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                <h3>Add Time to Task "{{currentTask.title}}"</h3>
-            </div>
-            <form class="addTimeForm" ng-submit="addTime()">
-            <div class="modal-body">
-                <p>
-                    Add <input id="addedHours" type="number" maxlength="2" min="-99" max="99" ng-model="addedHours" size="3"> hours and
-                    <input id="addedMinutes" type="number" maxlength="2" min="-99" max="99" ng-model="addedMinutes" size="3"> minutes.
-                </p>
-            </div>
-            <div class="modal-footer">
-                <a href="#" class="btn" data-dismiss="modal">Cancel</a>
-                <input class="btn btn-primary" type="submit" value="Add Time">
-            </div>
-            </form>
-        </div>
-
-    </div>
-    ​
-</div>
-
-
-<script src="libs/angular/angular.min.js"></script>
-<script src="libs/sugar.min.js"></script>
-<script src="libs/jquery/jquery.min.js"></script>
-<script src="libs/bootstrap/js/bootstrap.min.js"></script>
-<script src="libs/remote-storage/remoteStorage-debug.js"></script>
-<!-- <script src="https://raw.github.com/RemoteStorage/remoteStorage.js/gh-pages/build/0.7.0-head/remoteStorage-debug.js"></script> -->
-<script src="libs/remote-storage/tasks-js.js"></script>
-<script src="app.js"></script>
-</body>
+	<script src="libs/angular/angular.min.js"></script>
+	<script src="libs/sugar.min.js"></script>
+	<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="libs/jquery/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="libs/bootstrap/js/bootstrap.min.js"></script>
+	<script src="libs/remote-storage/remoteStorage-debug.js"></script>
+	<!-- <script src="https://raw.github.com/RemoteStorage/remoteStorage.js/gh-pages/build/0.7.0-head/remoteStorage-debug.js"></script> -->
+	<script src="libs/remote-storage/tasks-js.js"></script>
+	<script src="app.js"></script>
+  </body>
 </html>
